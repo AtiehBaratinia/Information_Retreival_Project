@@ -1,25 +1,24 @@
 from collections import OrderedDict
 
+
 def delete_marks(line):
-    line = line.replace(".", "")
+    i = 0
+    while i < line:
+        if 32 < ord(line[i]) < 39 or 39 < ord(line[i]) < 45 or 57 < ord(line[i]) < 65 or 90 < ord(line[i]) < 96:
+            del line[i]
+            i -= 1
+        i += 1
     line = line.replace("،", "")
+    line = line.replace("{", "")
+    line = line.replace("}", "")
     line = line.replace("\n", "")
-    line = line.replace("(", "")
-    line = line.replace(")", "")
-    line = line.replace("-", "")
-    line = line.replace("/", "")
-    line = line.replace(">", "")
-    line = line.replace("<", "")
+    line = line.replace("\t", "")
     line = line.replace("«", "")
     line = line.replace("»", "")
-    line = line.replace("_", "")
-    line = line.replace("‌", "")
-    line = line.replace("«", "")
-    line = line.replace("?", "")
     line = line.replace("؟", "")
-    line = line.replace(":", "")
     line = line.replace("؛", "")
-    line = line.replace("!", "")
+    line = line.replace(".", "")
+    line = line.replace("/", "")
     return line
 
 
@@ -46,10 +45,7 @@ def normalization(word):
     word = word.replace("۸", "8")
     word = word.replace("۹", "9")
     word = word.replace("۰", "0")
-    # if word.endswith("ترین"):
-    #     word = word.replace("ترین", "")
-    # if word.endswith("ترین"):
-    #     word = word.replace("ترین", "")
+    word = word.replace("آ", "ا")
     return word
 
 
@@ -93,7 +89,8 @@ def construct_inverted_index():
             for word in line.split(" "):
                 # Normalize words
                 word = normalization(word)
-
+                # delete half space
+                word = word.replace("‌", "")
                 if word not in tokens:
                     t = has_same_end_6chars(word, tokens)
                     if t[0]:
@@ -131,9 +128,52 @@ def construct_inverted_index():
         text = k + ':' + str(v) + '\n'
         f.write(text)
     f.close()
+    return final_dic
 
-def query_single_word(word):
+
+def query_single_word(word, dic):
     word = normalization(word)
+
+    if word in dic:
+        return dic[word]
+    temp = has_same_start_6chars(word, dic)
+    if temp[0]:
+        return dic[temp[1]]
+    temp = has_same_end_6chars(word, dic)
+    if temp[0]:
+        return dic[temp[1]]
+    return "No answer!"
+
+
+def test_IR(dictionary):
+    word = input()
+    if len(word.split(" ")) == 1:
+        print(query_single_word(word, dictionary))
+    else:
+        results = {}
+        s = word.split(" ")
+        for i in s:
+            docs = query_single_word(i, dictionary)
+            if docs != "No answer!":
+                for j in docs:
+                    if j not in results:
+                        results[j] = 1
+                    else:
+                        results[j] += 1
+        # search the query without space
+        word = word.replace(" ", "")
+        docs = query_single_word(word, dictionary)
+        if docs != "No answer!":
+            for j in docs:
+                if j not in results:
+                    results[j] = 1
+                else:
+                    results[j] += 1
+        results = dict(sorted(results.items(), key=lambda item: item[1], reverse=True))
+        print(results)
+
+
+def load_dic():
     f = open("result.txt")
     dic = {}
     for line in f.readlines():
@@ -151,43 +191,9 @@ def query_single_word(word):
                 listed.append(i)
             dic[splited[0]] = listed
     f.close()
-    if word in dic:
-        return dic[word]
-    temp = has_same_start_6chars(word, dic)
-    if temp[0]:
-        return dic[temp[1]]
-    temp = has_same_end_6chars(word, dic)
-    if temp[0]:
-        return dic[temp[1]]
-    return "No answer!"
-
-def test_IR():
-    word = input()
-    if len(word.split(" ")) == 1:
-        print(query_single_word(word))
-    else:
-        results = {}
-        s = word.split(" ")
-        for i in s:
-            docs = query_single_word(i)
-            if docs != "No answer!":
-                for j in docs:
-                    if j not in results:
-                        results[j] = 1
-                    else:
-                        results[j] += 1
-        # search the query without space
-        word = word.replace(" ", "")
-        docs = query_single_word(word)
-        if docs != "No answer!":
-            for j in docs:
-                if j not in results:
-                    results[j] = 1
-                else:
-                    results[j] += 1
-        results = dict(sorted(results.items(), key=lambda item: item[1], reverse=True))
-        print(results.items())
+    return dic
 
 
 if __name__ == "__main__":
-    test_IR()
+    dic = load_dic()
+    test_IR(dic)
