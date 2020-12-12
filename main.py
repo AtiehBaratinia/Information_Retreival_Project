@@ -1,11 +1,22 @@
 from collections import OrderedDict
 
 
+def add_number_of_word_to_dic(posting_list, doc_id, word_number):
+    i = 1
+    while i < len(posting_list):
+        if doc_id in posting_list[i]:
+            posting_list[i][doc_id].append(word_number)
+            return
+        i += 1
+    posting_list[0] += 1
+    posting_list.append({doc_id: [word_number]})
+
+
 def delete_marks(line):
     i = 0
-    while i < line:
+    while i < len(line):
         if 32 < ord(line[i]) < 39 or 39 < ord(line[i]) < 45 or 57 < ord(line[i]) < 65 or 90 < ord(line[i]) < 96:
-            del line[i]
+            line = line[:i] + line[i + 1:]
             i -= 1
         i += 1
     line = line.replace("،", "")
@@ -77,12 +88,14 @@ def has_same_end_6chars(word, dic_words):
     return False, None
 
 
-def construct_inverted_index():
+# {'hello': [6, {3: [1,6,8]}, {5, [3,6,5]}]}
+def construct_positional_index(number_of_doc):
     tokens = {}
 
-    for j in range(1, 11):
+    for j in range(1, number_of_doc + 1):
         doc = "sampleDoc/" + str(j) + ".txt"
         f1 = open(doc)
+        counter = 0
         for line in f1.readlines():
             # delete stop words and marks
             line = delete_marks(line)
@@ -91,26 +104,29 @@ def construct_inverted_index():
                 word = normalization(word)
                 # delete half space
                 word = word.replace("‌", "")
+                counter += 1
                 if word not in tokens:
-                    t = has_same_end_6chars(word, tokens)
-                    if t[0]:
-                        if not tokens[t[1]].__contains__(j):
-                            tokens[t[1]].append(j)
-                    t = has_same_start_6chars(word, tokens)
-                    if t[0]:
-                        if not tokens[t[1]].__contains__(j):
-                            tokens[t[1]].append(j)
+                    t1 = has_same_end_6chars(word, tokens)
+                    t2 = has_same_start_6chars(word, tokens)
+                    if t1[0]:
+                        if not tokens[t1[1]].__contains__(j):
+                            add_number_of_word_to_dic(tokens[t1[1]], j, counter)
+
+                    elif t2[0]:
+                        if not tokens[t2[1]].__contains__(j):
+                            add_number_of_word_to_dic(tokens[t2[1]], j, counter)
                     else:
-                        tokens[word] = [j]
-                elif not tokens[word].__contains__(j):
-                    tokens[word].append(j)
+                        tokens[word] = [1, {j: [counter]}]
+                else:
+
+                    add_number_of_word_to_dic(tokens[word], j, counter)
 
         f1.close()
 
     # delete most common words
     temp = []
     for i in tokens:
-        if len(tokens[i]) > 7:
+        if len(tokens[i]) > 0.75 * number_of_doc:
             temp.append(i)
     i = 0
     while i < len(temp):
@@ -119,13 +135,14 @@ def construct_inverted_index():
 
     # sort tokens
     od = OrderedDict(sorted(tokens.items()))
-    f = open("result.txt", 'w+')
 
+    # write back to file
+    f = open("result1.txt", 'w+')
     final_dic = {}
     for k, v in od.items():
         final_dic[k] = v
         print(k, v)
-        text = k + ':' + str(v) + '\n'
+        text = k + '?!' + str(v) + '\n'
         f.write(text)
     f.close()
     return final_dic
@@ -173,27 +190,47 @@ def test_IR(dictionary):
         print(results)
 
 
-def load_dic():
-    f = open("result.txt")
+def create_posting_list_from_file(line):
+    posting_list = []
+    line = line.split("{")
+    posting_list.append(int(line[0].replace("[", "").replace(", ", "")))
+    i = 1
+    while i < len(line):
+        line[i] = line[i].split("}")[0]
+        s = line[i].split(":")
+        index = {int(s[0]): []}
+        word_numbers = s[1].replace("]", "").replace("[", "").split(",")
+        for j in word_numbers:
+            index[int(s[0])].append(int(j))
+        i += 1
+        posting_list.append(index)
+    return posting_list
+
+
+def load_positional_dic():
+    f = open("result1.txt")
     dic = {}
     for line in f.readlines():
-        splited = line.split(":")
-        if splited[0].__contains__("["):
-            splited[0] = splited[0].rstrip('\n').replace(']', "").replace('[', "").replace(" ", "")
-            listed = []
-            for i in splited[0].split(","):
-                listed.append(i)
-            dic[splited[1]] = listed
+        line = line.replace("\n", "")
+        splited = line.split("!")
+
+        if splited[0].__contains__("?"):
+
+            splited[0] = splited[0].replace(" ", "")
+            splited[0] = splited[0].replace("?", "")
+            print(splited[1])
+            dic[splited[0]] = create_posting_list_from_file(splited[1])
         else:
-            splited[1] = splited[1].rstrip('\n').replace(']', "").replace('[', "").replace(" ", "")
-            listed = []
-            for i in splited[1].split(","):
-                listed.append(i)
-            dic[splited[0]] = listed
+            splited[1] = splited[1].replace(" ", "")
+            print(splited[0])
+            splited[1] = splited[1].replace("?", "")
+            dic[splited[1]] = create_posting_list_from_file(splited[0])
     f.close()
     return dic
 
 
 if __name__ == "__main__":
-    dic = load_dic()
-    test_IR(dic)
+    # construct_positional_index(10)
+    d = load_positional_dic()
+    for i in d:
+        print(i, d[i])
