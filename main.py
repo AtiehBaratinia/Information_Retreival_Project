@@ -139,7 +139,7 @@ def construct_positional_index(number_of_doc):
     od = OrderedDict(sorted(tokens.items()))
 
     # write back to file
-    f = open("result1.txt", 'w+')
+    f = open("dictionary.txt", 'w+')
     final_dic = {}
     for k, v in od.items():
         final_dic[k] = v
@@ -216,7 +216,7 @@ def create_posting_list_from_file(line):
 
 
 def load_positional_dic():
-    f = open("result1.txt")
+    f = open("dictionary.txt")
     dic = {}
     for line in f.readlines():
         line = line.replace("\n", "")
@@ -236,5 +236,6 @@ def load_positional_dic():
 
 
 if __name__ == "__main__":
-    dic = load_positional_dic()
-    test_IR(dic)
+    construct_positional_index(10)
+    # dic = load_positional_dic()
+    # test_IR(dic)
