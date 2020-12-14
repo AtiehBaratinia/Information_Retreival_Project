@@ -46,6 +46,8 @@ def normalization(word):
         word = word[:-3]
     if word.startswith("می‌"):
         word = word[3:]
+    if word.startswith("نمی‌"):
+        word = word[4:]
     word = word.replace("۱", "1")
     word = word.replace("۲", "2")
     word = word.replace("۳", "3")
@@ -169,25 +171,31 @@ def test_IR(dictionary):
     else:
         results = {}
         s = word.split(" ")
-        for i in s:
-            docs = query_single_word(i, dictionary)
+        i = 0
+        while i < len(s):
+            docs = query_single_word(s[i], dictionary)
             if docs != "No answer!":
-                for j in docs:
-                    if j not in results:
-                        results[j] = 1
-                    else:
-                        results[j] += 1
-        # search the query without space
-        word = word.replace(" ", "")
-        docs = query_single_word(word, dictionary)
-        if docs != "No answer!":
-            for j in docs:
-                if j not in results:
-                    results[j] = 1
+                results[s[i]] = docs
+            i += 1
+
+        # print(results)
+
+        accumulation = {}
+        for i in results:
+            k = 1
+            while k < len(results[i]):
+                temp = list(results[i][k].keys())[0]
+                if temp in accumulation:
+                    accumulation[temp] += 1
                 else:
-                    results[j] += 1
-        results = dict(sorted(results.items(), key=lambda item: item[1], reverse=True))
-        print(results)
+                    accumulation[temp] = 1
+                k += 1
+
+        accumulation = dict(sorted(accumulation.items(), key=lambda item: item[1], reverse=True))
+        if accumulation != {}:
+            print(accumulation)
+        else:
+            print("No answer!")
 
 
 def create_posting_list_from_file(line):
@@ -218,11 +226,9 @@ def load_positional_dic():
 
             splited[0] = splited[0].replace(" ", "")
             splited[0] = splited[0].replace("?", "")
-            print(splited[1])
             dic[splited[0]] = create_posting_list_from_file(splited[1])
         else:
             splited[1] = splited[1].replace(" ", "")
-            print(splited[0])
             splited[1] = splited[1].replace("?", "")
             dic[splited[1]] = create_posting_list_from_file(splited[0])
     f.close()
@@ -230,7 +236,5 @@ def load_positional_dic():
 
 
 if __name__ == "__main__":
-    # construct_positional_index(10)
-    d = load_positional_dic()
-    for i in d:
-        print(i, d[i])
+    dic = load_positional_dic()
+    test_IR(dic)
