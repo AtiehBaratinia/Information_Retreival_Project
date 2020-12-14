@@ -236,6 +236,6 @@ def load_positional_dic():
 
 
 if __name__ == "__main__":
-    construct_positional_index(10)
-    # dic = load_positional_dic()
-    # test_IR(dic)
+    # construct_positional_index(10)
+    dic = load_positional_dic()
+    test_IR(dic)
