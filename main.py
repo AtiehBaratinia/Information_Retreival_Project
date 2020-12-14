@@ -239,3 +239,4 @@ if __name__ == "__main__":
     # construct_positional_index(10)
     dic = load_positional_dic()
     test_IR(dic)
+    print('')
