@@ -1,5 +1,6 @@
 from collections import OrderedDict
-
+import math
+import heapq
 
 def add_number_of_word_to_dic(posting_list, doc_id, word_number):
     i = 1
@@ -128,7 +129,7 @@ def construct_positional_index(number_of_doc):
     # delete most common words
     temp = []
     for i in tokens:
-        if len(tokens[i]) > 0.75 * number_of_doc:
+        if len(tokens[i]) > 0.79 * number_of_doc:
             temp.append(i)
     i = 0
     while i < len(temp):
@@ -150,52 +151,160 @@ def construct_positional_index(number_of_doc):
     return final_dic
 
 
+def calculate_list_tf_idf(word, dic):
+    list_word = dic[word]
+    weight_doc = {}
+
+    df = list_word[0]
+    idf = math.log(total_docs / df, 10)
+    i = 1
+    while len(list_word) != 1 and i < len(list_word):
+        doc_id = list(list_word[i].keys())[0]
+        tf = len(list_word[i][doc_id])
+        w = (1 + math.log(tf, 10)) * idf
+        weight_doc[doc_id] = w
+        i += 1
+    return weight_doc
+
+
 def query_single_word(word, dic):
     word = normalization(word)
 
     if word in dic:
-        return dic[word]
+        list_word = dic[word]
+        # weight_doc = calculate_list_tf_idf(word, dic)
+        return list_word # , weight_doc
+
     temp = has_same_start_6chars(word, dic)
     if temp[0]:
-        return dic[temp[1]]
+        word = temp[1]
+        list_word = dic[word]
+        # weight_doc = calculate_list_tf_idf(word, dic)
+        return list_word # , weight_doc
+
     temp = has_same_end_6chars(word, dic)
     if temp[0]:
-        return dic[temp[1]]
+        word = temp[1]
+        list_word = dic[word]
+        # weight_doc = calculate_list_tf_idf(word, dic)
+        return list_word # , weight_doc
     return "No answer!"
+
+
+def calculate_similarity(weight_query_words, weight_list):
+    similarity_list = {}
+    for i in weight_query_words:
+        if i in weight_list:
+            for j in weight_list[i]:
+                if j in similarity_list:
+                    similarity_list[j][0] += weight_list[i][j] * weight_query_words[i]
+                    similarity_list[j][1] += weight_list[i][j] ** 2
+                    similarity_list[j][2] += 1
+                else:
+                    # = [ a.b , a^2 ]
+                    similarity_list[j] = [weight_list[i][j] * weight_query_words[i], weight_list[i][j] ** 2, 1]
+    # print(similarity_list)
+
+    # calculate |b|
+    b2 = 0
+    for i in weight_query_words:
+        b2 += weight_query_words[i] ** 2
+    b = math.sqrt(b2)
+
+    result = {}
+    for i in similarity_list:
+        result[i] = similarity_list[i][0] / (math.sqrt(similarity_list[i][1]) * b)
+    return result
+
+def remove_docs_with_few_words(words, pos_list):
+    accumulate_doc = {}
+    for k in pos_list:
+        i = 1
+        while i < len(pos_list[k]):
+            if list(pos_list[k][i].keys())[0] in accumulate_doc:
+                accumulate_doc[list(pos_list[k][i].keys())[0]] += 1
+            else:
+                accumulate_doc[list(pos_list[k][i].keys())[0]] = 1
+            i += 1
+    # print(accumulate_doc)
+
+    for i in accumulate_doc:
+        if len(words) > 2 and accumulate_doc[i]/len(words) < 0.6:
+            for k in pos_list:
+                j = 1
+                while j < len(pos_list[k]):
+                    if list(pos_list[k][j].keys())[0] == i:
+                        del pos_list[k][j]
+                        j -= 1
+                    j += 1
+    return pos_list
 
 
 def test_IR(dictionary):
     word = input()
+    # single word query
     if len(word.split(" ")) == 1:
-        print(query_single_word(word, dictionary))
+        answer = query_single_word(word, dictionary)
+        if type(answer) is list:
+            weight_doc = calculate_list_tf_idf(word, dic)
+            # print(answer[0], '\n', answer[1])
+            # create max_heap
+            heap = [(-value, key) for key, value in weight_doc.items()]
+            max_heap = heapq.nsmallest(k, heap)
+            max_heap = [(key, -value) for value, key in max_heap]
+            print(max_heap)
+        else:
+            print(answer)
+
+    # multi words query
     else:
-        results = {}
+        position_list = {}
+        weight_list = {}
         s = word.split(" ")
+
+        # calculate tf of query words
+        tf_query_words = {}
+        for i in s:
+            if i in tf_query_words:
+                tf_query_words[i] += 1
+            else:
+                tf_query_words[i] = 1
+
+        # calculate weight of query words
+        weight_query_words = {}
+        for i in tf_query_words:
+            if i in dictionary:
+                weight_query_words[i] = (1 + math.log(tf_query_words[i], 10)) * math.log(total_docs / dictionary[i][0], 10)
+            else:
+                weight_query_words[i] = 0
+        # print(weight_query_words)
+
         i = 0
         while i < len(s):
-            docs = query_single_word(s[i], dictionary)
-            if docs != "No answer!":
-                results[s[i]] = docs
+            answer = query_single_word(s[i], dictionary)
+            if type(answer) is list:
+                position_list[s[i]] = answer
+                # weight_list[s[i]] = answer[1]
             i += 1
 
-        # print(results)
+        print(position_list)
 
-        accumulation = {}
-        for i in results:
-            k = 1
-            while k < len(results[i]):
-                temp = list(results[i][k].keys())[0]
-                if temp in accumulation:
-                    accumulation[temp] += 1
-                else:
-                    accumulation[temp] = 1
-                k += 1
 
-        accumulation = dict(sorted(accumulation.items(), key=lambda item: item[1], reverse=True))
-        if accumulation != {}:
-            print(accumulation)
-        else:
-            print("No answer!")
+        position_list = remove_docs_with_few_words(s, position_list)
+        for i in s:
+            if i in position_list:
+                w = calculate_list_tf_idf(i, position_list)
+                if w != {}:
+                    weight_list[i] = w
+        print(weight_list)
+
+        result = calculate_similarity(weight_query_words, weight_list)
+        # create max_heap
+        heap = [(-value, key) for key, value in result.items()]
+        max_heap = heapq.nsmallest(k, heap)
+        max_heap = [(key, -value) for value, key in max_heap]
+
+        print(max_heap)
 
 
 def create_posting_list_from_file(line):
@@ -236,7 +345,8 @@ def load_positional_dic():
 
 
 if __name__ == "__main__":
+    total_docs = 10
+    k = 10
     # construct_positional_index(10)
     dic = load_positional_dic()
     test_IR(dic)
-    print('')
