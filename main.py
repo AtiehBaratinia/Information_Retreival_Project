@@ -2,6 +2,7 @@ from collections import OrderedDict
 import math
 import heapq
 
+
 def add_number_of_word_to_dic(posting_list, doc_id, word_number):
     i = 1
     while i < len(posting_list):
@@ -91,12 +92,41 @@ def has_same_end_6chars(word, dic_words):
     return False, None
 
 
+def construct_champion_list(dic):
+    final_dic = {}
+
+    for k in dic:
+        if dic[k][0] >= r:
+
+            docs_with_weight = calculate_list_tf_idf(k, dic[k])
+            # create max_heap
+            heap = [(-value, key) for key, value in docs_with_weight.items()]
+            max_heap = heapq.nsmallest(r, heap)
+            max_heap = [key for value, key in max_heap]
+            temp = [dic[k][0]]
+            i = 1
+            while i < len(dic[k]):
+                if list(dic[k][i].keys())[0] in max_heap:
+                    temp.append(dic[k][i])
+                i += 1
+            final_dic[k] = temp
+        else:
+            final_dic[k] = dic[k]
+
+    # write back to file
+    f = open("champion_list.txt", 'w+')
+    for k in final_dic:
+        text = k + '?!' + str(final_dic[k]) + '\n'
+        f.write(text)
+    f.close()
+
+
 # {'hello': [6, {3: [1,6,8]}, {5, [3,6,5]}]}
 def construct_positional_index(number_of_doc):
     tokens = {}
 
     for j in range(1, number_of_doc + 1):
-        doc = "sampleDoc/" + str(j) + ".txt"
+        doc = "docs/" + str(j) + ".txt"
         f1 = open(doc)
         counter = 0
         for line in f1.readlines():
@@ -148,11 +178,14 @@ def construct_positional_index(number_of_doc):
         text = k + '?!' + str(v) + '\n'
         f.write(text)
     f.close()
+
+    construct_champion_list(final_dic)
+
     return final_dic
 
 
-def calculate_list_tf_idf(word, dic):
-    list_word = dic[word]
+def calculate_list_tf_idf(word, list_word):
+    # list_word = dic[word]
     weight_doc = {}
 
     df = list_word[0]
@@ -173,21 +206,21 @@ def query_single_word(word, dic):
     if word in dic:
         list_word = dic[word]
         # weight_doc = calculate_list_tf_idf(word, dic)
-        return list_word # , weight_doc
+        return list_word  # , weight_doc
 
     temp = has_same_start_6chars(word, dic)
     if temp[0]:
         word = temp[1]
         list_word = dic[word]
         # weight_doc = calculate_list_tf_idf(word, dic)
-        return list_word # , weight_doc
+        return list_word  # , weight_doc
 
     temp = has_same_end_6chars(word, dic)
     if temp[0]:
         word = temp[1]
         list_word = dic[word]
         # weight_doc = calculate_list_tf_idf(word, dic)
-        return list_word # , weight_doc
+        return list_word  # , weight_doc
     return "No answer!"
 
 
@@ -216,6 +249,7 @@ def calculate_similarity(weight_query_words, weight_list):
         result[i] = similarity_list[i][0] / (math.sqrt(similarity_list[i][1]) * b)
     return result
 
+
 def remove_docs_with_few_words(words, pos_list):
     accumulate_doc = {}
     for k in pos_list:
@@ -229,7 +263,7 @@ def remove_docs_with_few_words(words, pos_list):
     # print(accumulate_doc)
 
     for i in accumulate_doc:
-        if len(words) > 2 and accumulate_doc[i]/len(words) < 0.6:
+        if len(words) > 2 and accumulate_doc[i] / len(words) < 0.6:
             for k in pos_list:
                 j = 1
                 while j < len(pos_list[k]):
@@ -240,13 +274,13 @@ def remove_docs_with_few_words(words, pos_list):
     return pos_list
 
 
-def test_IR(dictionary):
-    word = input()
+def test_IR(word, champ_dic):
+
     # single word query
     if len(word.split(" ")) == 1:
-        answer = query_single_word(word, dictionary)
+        answer = query_single_word(word, champ_dic)
         if type(answer) is list:
-            weight_doc = calculate_list_tf_idf(word, dic)
+            weight_doc = calculate_list_tf_idf(word, champ_dic[word])
             # print(answer[0], '\n', answer[1])
             # create max_heap
             heap = [(-value, key) for key, value in weight_doc.items()]
@@ -258,8 +292,8 @@ def test_IR(dictionary):
 
     # multi words query
     else:
-        position_list = {}
-        weight_list = {}
+
+
         s = word.split(" ")
 
         # calculate tf of query words
@@ -273,38 +307,44 @@ def test_IR(dictionary):
         # calculate weight of query words
         weight_query_words = {}
         for i in tf_query_words:
-            if i in dictionary:
-                weight_query_words[i] = (1 + math.log(tf_query_words[i], 10)) * math.log(total_docs / dictionary[i][0], 10)
+            if i in champ_dic:
+                weight_query_words[i] = (1 + math.log(tf_query_words[i], 10)) * math.log(total_docs / champ_dic[i][0],
+                                                                                         10)
             else:
                 weight_query_words[i] = 0
         # print(weight_query_words)
 
+        position_champ = {}
+
+        # get position list of query words
         i = 0
         while i < len(s):
-            answer = query_single_word(s[i], dictionary)
-            if type(answer) is list:
-                position_list[s[i]] = answer
-                # weight_list[s[i]] = answer[1]
+            answer_champ = query_single_word(s[i], champ_dic)
+            if type(answer_champ) is list:
+                position_champ[s[i]] = answer_champ
             i += 1
 
-        print(position_list)
+        # print(position_list)
 
-
-        position_list = remove_docs_with_few_words(s, position_list)
+        # remove docs with few words of query
+        position_champ = remove_docs_with_few_words(s, position_champ)
+        # calculate combined list of word's weight
+        weight_champ_list = {}
         for i in s:
-            if i in position_list:
-                w = calculate_list_tf_idf(i, position_list)
+            if i in position_champ:
+                w = calculate_list_tf_idf(i, position_champ[i])
                 if w != {}:
-                    weight_list[i] = w
-        print(weight_list)
+                    weight_champ_list[i] = w
+        # print(weight_list)
 
-        result = calculate_similarity(weight_query_words, weight_list)
+        # calculate similarity of query and dictionary
+        result = calculate_similarity(weight_query_words, weight_champ_list)
         # create max_heap
         heap = [(-value, key) for key, value in result.items()]
         max_heap = heapq.nsmallest(k, heap)
         max_heap = [(key, -value) for value, key in max_heap]
 
-        print(max_heap)
+        return max_heap
 
 
 def create_posting_list_from_file(line):
@@ -341,12 +381,47 @@ def load_positional_dic():
             splited[1] = splited[1].replace("?", "")
             dic[splited[1]] = create_posting_list_from_file(splited[0])
     f.close()
-    return dic
+
+    f = open("champion_list.txt")
+    champ_dic = {}
+    for line in f.readlines():
+        line = line.replace("\n", "")
+        splited = line.split("!")
+
+        if splited[0].__contains__("?"):
+
+            splited[0] = splited[0].replace(" ", "")
+            splited[0] = splited[0].replace("?", "")
+            champ_dic[splited[0]] = create_posting_list_from_file(splited[1])
+        else:
+            splited[1] = splited[1].replace(" ", "")
+            splited[1] = splited[1].replace("?", "")
+            champ_dic[splited[1]] = create_posting_list_from_file(splited[0])
+    f.close()
+    return dic, champ_dic
 
 
 if __name__ == "__main__":
-    total_docs = 10
-    k = 10
-    # construct_positional_index(10)
-    dic = load_positional_dic()
-    test_IR(dic)
+    total_docs = 100
+    k = 7
+    r = 5
+
+    # construct_positional_index(100)
+
+    dic, champ_dic = load_positional_dic()
+
+    word = input()
+
+    answer = test_IR(word, champ_dic)
+    print(answer)
+    if len(answer) < k:
+        answer_total = test_IR(word, dic)
+        # remove docs that was available in answer list
+        for i in answer:
+            j = 0
+            while j < len(answer_total):
+                if i[0] == answer_total[j][0]:
+                    del answer_total[j]
+                    j -= 1
+                j += 1
+        print(answer_total)
