@@ -286,13 +286,12 @@ def test_IR(word, champ_dic):
             heap = [(-value, key) for key, value in weight_doc.items()]
             max_heap = heapq.nsmallest(k, heap)
             max_heap = [(key, -value) for value, key in max_heap]
-            print(max_heap)
+            return max_heap
         else:
-            print(answer)
+            return answer
 
     # multi words query
     else:
-
 
         s = word.split(" ")
 
@@ -414,7 +413,7 @@ if __name__ == "__main__":
 
     answer = test_IR(word, champ_dic)
     print(answer)
-    if len(answer) < k:
+    if answer is not None and len(answer) < k:
         answer_total = test_IR(word, dic)
         # remove docs that was available in answer list
         for i in answer:
