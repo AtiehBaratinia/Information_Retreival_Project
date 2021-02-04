@@ -114,7 +114,7 @@ def construct_champion_list(dic):
             final_dic[k] = dic[k]
 
     # write back to file
-    f = open("champion_list.txt", 'w+')
+    f = open("dics/champion_list_physics.txt", 'w+')
     for k in final_dic:
         text = k + '?!' + str(final_dic[k]) + '\n'
         f.write(text)
@@ -126,7 +126,7 @@ def construct_positional_index(number_of_doc):
     tokens = {}
 
     for j in range(1, number_of_doc + 1):
-        doc = "docs/" + str(j) + ".txt"
+        doc = "phase3/physics/" + str(j) + ".txt"
         f1 = open(doc)
         counter = 0
         for line in f1.readlines():
@@ -170,7 +170,7 @@ def construct_positional_index(number_of_doc):
     od = OrderedDict(sorted(tokens.items()))
 
     # write back to file
-    f = open("dictionary.txt", 'w+')
+    f = open("dics/dictionary_physics.txt", 'w+')
     final_dic = {}
     for k, v in od.items():
         final_dic[k] = v
@@ -399,14 +399,7 @@ def load_positional_dic():
     f.close()
     return dic, champ_dic
 
-
-if __name__ == "__main__":
-    total_docs = 100
-    k = 7
-    r = 5
-
-    # construct_positional_index(100)
-
+def test_phase_2():
     dic, champ_dic = load_positional_dic()
 
     word = input()
@@ -424,3 +417,145 @@ if __name__ == "__main__":
                     j -= 1
                 j += 1
         print(answer_total)
+
+
+def load_positional_dic_cluster(name):
+    s = 'dics/dictionary_'+name+'.txt'
+    f = open(s)
+    dic = {}
+    for line in f.readlines():
+        line = line.replace("\n", "")
+        splited = line.split("!")
+
+        if splited[0].__contains__("?"):
+
+            splited[0] = splited[0].replace(" ", "")
+            splited[0] = splited[0].replace("?", "")
+            dic[splited[0]] = create_posting_list_from_file(splited[1])
+        else:
+            splited[1] = splited[1].replace(" ", "")
+            splited[1] = splited[1].replace("?", "")
+            dic[splited[1]] = create_posting_list_from_file(splited[0])
+    f.close()
+
+    s = 'dics/champion_list_' + name + '.txt'
+    f = open(s)
+    champ_dic = {}
+    for line in f.readlines():
+        line = line.replace("\n", "")
+        splited = line.split("!")
+
+        if splited[0].__contains__("?"):
+
+            splited[0] = splited[0].replace(" ", "")
+            splited[0] = splited[0].replace("?", "")
+            champ_dic[splited[0]] = create_posting_list_from_file(splited[1])
+        else:
+            splited[1] = splited[1].replace(" ", "")
+            splited[1] = splited[1].replace("?", "")
+            champ_dic[splited[1]] = create_posting_list_from_file(splited[0])
+    f.close()
+    return dic, champ_dic
+
+def calculate_center_of_clusters(n, cluster_name):
+    # load dic
+    name = 'dics/dictionary_' + cluster_name + '.txt'
+    f = open(name)
+    dic = {}
+    for line in f.readlines():
+        line = line.replace("\n", "")
+        splited = line.split("!")
+
+        if splited[0].__contains__("?"):
+
+            splited[0] = splited[0].replace(" ", "")
+            splited[0] = splited[0].replace("?", "")
+            dic[splited[0]] = create_posting_list_from_file(splited[1])
+        else:
+            splited[1] = splited[1].replace(" ", "")
+            splited[1] = splited[1].replace("?", "")
+            dic[splited[1]] = create_posting_list_from_file(splited[0])
+    f.close()
+    words_center_of_cluster = []
+    for k in dic:
+        sum = dic[k][0]
+        i = 1
+        while i < len(dic[k]):
+            doc_id = list(dic[k][i].keys())[0]
+            sum += len(dic[k][i][doc_id])
+            i += 1
+
+        if sum >= n:
+            words_center_of_cluster.append(k)
+    print(len(words_center_of_cluster), words_center_of_cluster)
+
+    # write back to file
+    s = "centers/centers_" + cluster_name + ".txt"
+    f = open(s, 'w+')
+
+    for k in words_center_of_cluster:
+
+        text = k + ','
+        f.write(text)
+    f.close()
+
+
+def load_center_of_clusters(name):
+    s = 'centers/centers_' + name+'.txt'
+    f = open(s)
+    words = f.readline().split(',')
+    f.close()
+    return words
+
+def test_phase_3():
+    word = input()
+    value_max = 0
+    category = 'health'
+    categories = ['health', 'history', 'physics', 'math', 'technology']
+    for i in categories:
+        words_center = load_center_of_clusters(i)
+        value = 0
+        for j in word.split(" "):
+            if j in words_center:
+                value += 1
+
+        if value >= value_max:
+            value_max = value
+            category = i
+
+    print(category)
+    dic, champ_dic = load_positional_dic_cluster(category)
+
+    answer = test_IR(word, champ_dic)
+    print(answer)
+    if answer is not None and len(answer) < k:
+        answer_total = test_IR(word, dic)
+        # remove docs that was available in answer list
+        for i in answer:
+            j = 0
+            while j < len(answer_total):
+                if i[0] == answer_total[j][0]:
+                    del answer_total[j]
+                    j -= 1
+                j += 1
+        print(answer_total)
+
+if __name__ == "__main__":
+    total_docs = 100
+    k = 7
+    r = 5
+    ##### ATTENTION ###########
+    ###### Do not forget to set the name of dictionary file and its champion list #######
+    # construct_positional_index(60)
+
+
+    ###### calculate center of clusters
+    # least_number_of_docs_have_that_word = 40
+    # cluster_name = 'physics'
+    # calculate_center_of_clusters(least_number_of_docs_have_that_word, cluster_name)
+
+    # for test phase 2
+    # test_phase_2()
+
+    # test phase 3
+    test_phase_3()
